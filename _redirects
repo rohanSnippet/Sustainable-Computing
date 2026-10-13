@@ -1,0 +1,3 @@
+# Netlify redirect rules
+/ppt.html    /index.html    301
+/*           /index.html    200

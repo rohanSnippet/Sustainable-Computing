@@ -1,0 +1,2286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon-Aware Computing for Datacenters | Google CICS Technical Presentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           MODERN TECHNICAL DESIGN SYSTEM - CARBON-AWARE COMPUTING (GOOGLE CICS)
+           ========================================================================== */
+        :root {
+            --bg-deep: #06090c;
+            --bg-surface: #0c1218;
+            --bg-card: rgba(16, 24, 32, 0.75);
+            --bg-card-hover: rgba(22, 34, 46, 0.85);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(0, 245, 155, 0.35);
+
+            --text-main: #f3f6f9;
+            --text-secondary: #9cb1c4;
+            --text-muted: #5e7386;
+
+            /* Domain specific color semantics */
+            --c-green: #00f59b;      /* Clean renewable generation / low carbon */
+            --c-green-glow: rgba(0, 245, 155, 0.25);
+            --c-amber: #ffb800;      /* Moderate carbon intensity / flexible queuing */
+            --c-amber-glow: rgba(255, 184, 0, 0.25);
+            --c-red: #ff4757;        /* Dirty grid / peak carbon peakers */
+            --c-red-glow: rgba(255, 71, 87, 0.25);
+            --c-cyan: #00d2ff;       /* Data pipelines / power models / telemetry */
+            --c-purple: #9d4edd;     /* Inflexible services / machine baseline */
+            --c-blue: #3b82f6;       /* Google Borg OS / scheduler */
+
+            --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-smooth: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }
+
+        /* Ambient animated background grid */
+        .ambient-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background: 
+                radial-gradient(circle at 15% 20%, rgba(0, 245, 155, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(0, 210, 255, 0.05) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(157, 78, 221, 0.03) 0%, transparent 50%);
+        }
+
+        .ambient-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* ==========================================================================
+           HEADER & NAVIGATION DOCK
+           ========================================================================== */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            background: rgba(6, 9, 12, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+        }
+
+        .brand-badge {
+            background: linear-gradient(135deg, rgba(0, 245, 155, 0.2), rgba(0, 210, 255, 0.2));
+            color: var(--c-green);
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 245, 155, 0.4);
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .slide-indicator-pill {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.35rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        /* Top Progress Bar with glowing edge */
+        .progress-track {
+            position: fixed;
+            top: 59px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            z-index: 101;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 10%;
+            background: linear-gradient(90deg, var(--c-green), var(--c-cyan));
+            box-shadow: 0 0 10px var(--c-green-glow);
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Bottom Floating Controller Bar */
+        .nav-dock {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.45rem 0.85rem;
+            background: rgba(12, 18, 24, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--c-green);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn:active {
+            transform: translateY(0);
+        }
+
+        .nav-btn.text-btn {
+            width: auto;
+            border-radius: 20px;
+            padding: 0 0.85rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            gap: 0.4rem;
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border-subtle);
+            margin: 0 0.2rem;
+        }
+
+        /* Slide dots indicator */
+        .slide-dots {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0 0.5rem;
+        }
+
+        .slide-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .slide-dot.active {
+            width: 24px;
+            border-radius: 10px;
+            background: var(--c-green);
+            box-shadow: 0 0 8px var(--c-green-glow);
+        }
+
+        .slide-dot:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* ==========================================================================
+           PRESENTATION VIEWPORT & SLIDES
+           ========================================================================== */
+        .presentation-deck {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            padding: 70px 5vw 80px 5vw;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.97) translateY(20px);
+            transition: opacity 0.45s var(--ease-out-expo), transform 0.45s var(--ease-out-expo);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) translateY(0);
+        }
+
+        .slide-container {
+            max-width: 1260px;
+            width: 100%;
+            margin: auto 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem;
+        }
+
+        /* Header block of each slide */
+        .slide-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .slide-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--c-green);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
+        .eyebrow-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--c-green);
+            box-shadow: 0 0 6px var(--c-green);
+        }
+
+        .slide-title {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 3.2vw, 3.2rem);
+            font-weight: 800;
+            line-height: 1.15;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        .slide-title .gradient-text {
+            background: linear-gradient(135deg, #ffffff 30%, var(--c-green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .slide-subtitle {
+            font-size: clamp(1rem, 1.3vw, 1.25rem);
+            color: var(--text-secondary);
+            font-weight: 400;
+            line-height: 1.5;
+            max-width: 950px;
+        }
+
+        /* ==========================================================================
+           MODULAR CARDS & GRID COMPONENTS
+           ========================================================================== */
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            backdrop-filter: blur(16px);
+            padding: 1.5rem;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-accent-green { border-left: 3px solid var(--c-green); }
+        .card-accent-amber { border-left: 3px solid var(--c-amber); }
+        .card-accent-red   { border-left: 3px solid var(--c-red); }
+        .card-accent-cyan  { border-left: 3px solid var(--c-cyan); }
+        .card-accent-purple{ border-left: 3px solid var(--c-purple); }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-body {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .grid-2-1 {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        /* Metric stat badge */
+        .stat-badge {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--text-main);
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .tag-green { background: rgba(0, 245, 155, 0.15); color: var(--c-green); border: 1px solid rgba(0, 245, 155, 0.3); }
+        .tag-amber { background: rgba(255, 184, 0, 0.15); color: var(--c-amber); border: 1px solid rgba(255, 184, 0, 0.3); }
+        .tag-red   { background: rgba(255, 71, 87, 0.15); color: var(--c-red); border: 1px solid rgba(255, 71, 87, 0.3); }
+        .tag-cyan  { background: rgba(0, 210, 255, 0.15); color: var(--c-cyan); border: 1px solid rgba(0, 210, 255, 0.3); }
+        .tag-purple{ background: rgba(157, 78, 221, 0.15); color: var(--c-purple); border: 1px solid rgba(157, 78, 221, 0.3); }
+
+        /* Formula box */
+        .formula-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.85rem 1.1rem;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            color: #d1e4f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0.6rem 0;
+            overflow-x: auto;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .formula-highlight {
+            color: var(--c-green);
+            font-weight: 700;
+        }
+
+        /* ==========================================================================
+           SLIDE 1: HERO & GLOBAL GRID CANVAS
+           ========================================================================== */
+        .hero-layout {
+            display: grid;
+            grid-template-columns: 1.25fr 0.95fr;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .hero-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            background: rgba(12, 18, 24, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        #heroGlobeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .canvas-badge-overlay {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            right: 1rem;
+            background: rgba(6, 9, 12, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-subtle);
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+        }
+
+        .authors-list {
+            margin-top: 1rem;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .venue-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 1.2rem;
+            font-family: var(--font-mono);
+        }
+
+        /* ==========================================================================
+           SLIDE 4 & 5: VCC & SIMULATOR VISUALIZATIONS
+           ========================================================================== */
+        .vcc-graph-wrap {
+            width: 100%;
+            height: 340px;
+            background: rgba(10, 15, 20, 0.8);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 1.2rem;
+            position: relative;
+        }
+
+        .chart-svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Interactive Simulator Panel */
+        .sim-control-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(16, 24, 32, 0.9);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 0.75rem 1.25rem;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .sim-btn {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: var(--font-display);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: var(--transition-smooth);
+        }
+
+        .sim-btn:hover {
+            background: rgba(0, 245, 155, 0.2);
+            border-color: var(--c-green);
+            color: var(--c-green);
+        }
+
+        .sim-btn.active-mode {
+            background: var(--c-green);
+            color: #06090c;
+            border-color: var(--c-green);
+        }
+
+        .timeline-slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+        }
+
+        .timeline-slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--c-green);
+            box-shadow: 0 0 10px var(--c-green);
+            cursor: pointer;
+            border: 2px solid #ffffff;
+        }
+
+        /* ==========================================================================
+           INTERACTIVE ARCHITECTURE FLOWCHART (SLIDE 6)
+           ========================================================================== */
+        .pipeline-flow {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.85rem;
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .pipeline-card {
+            background: rgba(16, 24, 32, 0.7);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.1rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            position: relative;
+        }
+
+        .pipeline-card:hover, .pipeline-card.active {
+            border-color: var(--c-green);
+            transform: translateY(-4px);
+            background: rgba(20, 32, 44, 0.9);
+            box-shadow: 0 10px 25px rgba(0, 245, 155, 0.15);
+        }
+
+        .pipeline-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .pipeline-num {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--c-green);
+            font-weight: 700;
+        }
+
+        .pipeline-title {
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.35rem;
+        }
+
+        .pipeline-desc {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+
+        .pipeline-detail-pane {
+            background: rgba(12, 18, 24, 0.95);
+            border: 1px solid rgba(0, 245, 155, 0.25);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        /* ==========================================================================
+           TABS COMPONENT FOR RESULTS (SLIDE 9)
+           ========================================================================== */
+        .tabs-header {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: var(--c-green);
+            background: rgba(0, 245, 155, 0.12);
+            border-color: rgba(0, 245, 155, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s var(--ease-out-expo);
+        }
+
+        .tab-content.active {
+            display: grid;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================================================
+           SLIDE OVERVIEW MODAL
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(6, 9, 12, 0.85);
+            backdrop-filter: blur(16px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition-smooth);
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .overview-grid {
+            max-width: 1200px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1.2rem;
+            padding: 1rem;
+        }
+
+        .overview-thumb {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-height: 130px;
+        }
+
+        .overview-thumb:hover, .overview-thumb.current {
+            border-color: var(--c-green);
+            transform: scale(1.03);
+            box-shadow: 0 8px 20px rgba(0, 245, 155, 0.15);
+        }
+
+        .overview-num {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--c-green);
+            font-weight: 700;
+        }
+
+        .overview-name {
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--c-green);
+        }
+
+        /* Responsiveness */
+        @media (max-width: 1024px) {
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+            .hero-layout { grid-template-columns: 1fr; }
+            .pipeline-flow { grid-template-columns: 1fr; }
+            .overview-grid { grid-template-columns: repeat(2, 1fr); }
+            .slide { padding: 70px 1.5rem 80px 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Visual Grid & Glow -->
+    <div class="ambient-bg"></div>
+    <div class="ambient-grid"></div>
+
+    <!-- Application Header -->
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="brand-badge">GOOGLE RESEARCH</span>
+            <span>Carbon-Intelligent Computing (CICS)</span>
+        </div>
+        <div class="header-status">
+            <span class="tag tag-green">IEEE TPWRS 2023</span>
+            <span class="slide-indicator-pill" id="slidePill">Slide 01 / 10</span>
+        </div>
+    </header>
+
+    <!-- Top Progress Bar -->
+    <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <!-- Presentation Viewport -->
+    <main class="presentation-deck">
+
+        <!-- ===================================================================
+             SLIDE 1: HERO & EXECUTIVE TITLE
+             =================================================================== -->
+        <section class="slide active" data-slide="1" data-title="Executive Overview">
+            <div class="slide-container">
+                <div class="hero-layout">
+                    <div>
+                        <div class="slide-eyebrow">
+                            <span class="eyebrow-dot"></span>
+                            <span>IEEE Transactions on Power Systems &bull; Vol. 38, No. 2</span>
+                        </div>
+                        <h1 class="slide-title" style="margin-top: 0.5rem; margin-bottom: 0.75rem;">
+                            Carbon-Aware Computing for <span class="gradient-text">Datacenters</span>
+                        </h1>
+                        <p class="slide-subtitle">
+                            Google's global in-production system for carbon-intelligent compute management, actively shifting hyperscale workloads in time to match clean electricity availability.
+                        </p>
+
+                        <div class="authors-list">
+                            <strong>Authors:</strong> Ana Radovanović, Ross Koningstein, Ian Schneider, Bokan Chen, Alexandre Duarte, Binz Roy, Diyue Xiao, Maya Haridasan, Patrick Hung, Nick Care, Saurav Talukdar, Eric Mullen, Kendal Smith, MariEllen Cottman, Walfredo Cirne
+                        </div>
+
+                        <div class="venue-pill">
+                            <span>Google LLC, Mountain View &bull; Paper no. TPWRS-01286-2021 &bull; DOI: 10.1109/TPWRS.2022.3173250</span>
+                        </div>
+
+                        <div class="grid-3" style="margin-top: 1.5rem;">
+                            <div class="stat-badge">
+                                <div class="stat-value" style="color: var(--c-green);">20+</div>
+                                <div class="stat-label">Datacenters on 4 Continents</div>
+                            </div>
+                            <div class="stat-badge">
+                                <div class="stat-value" style="color: var(--c-cyan);">&gt;15.5</div>
+                                <div class="stat-label">Terawatt-Hours Fleet Scale</div>
+                            </div>
+                            <div class="stat-badge">
+                                <div class="stat-value" style="color: var(--c-amber);">100%</div>
+                                <div class="stat-label">Scheduler-Agnostic Borg Ops</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Global Interactive Mesh Canvas -->
+                    <div class="hero-canvas-wrap">
+                        <canvas id="heroGlobeCanvas"></canvas>
+                        <div class="canvas-badge-overlay">
+                            <span style="color: var(--c-green);">&#9679; Fleet Telemetry Active</span>
+                            <span style="color: var(--text-secondary);">24-Hour Predictive Shaping Window</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 2: THE PROBLEM & ENERGY TRILEMMA
+             =================================================================== -->
+        <section class="slide" data-slide="2" data-title="The Energy Challenge">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Global Infrastructure Context</span>
+                    </div>
+                    <h2 class="slide-title">The Hyperscale Decarbonization Challenge</h2>
+                    <p class="slide-subtitle">
+                        Why static 24/7 compute scheduling emits excessive carbon and inflates peak power costs across modern electricity grids.
+                    </p>
+                </div>
+
+                <div class="grid-3">
+                    <div class="glass-card card-accent-red">
+                        <div class="card-title">
+                            <span>1. Compute Growth Explosion</span>
+                            <span class="tag tag-red">&gt;6x Growth</span>
+                        </div>
+                        <div class="card-body">
+                            Global datacenters consume ~1% of worldwide electricity. Between 2010 and 2018, compute workloads expanded more than 6-fold. By 2030, ICT demand is projected to reach <strong>3% to 13% of all global electricity</strong>, compounding climate impact unless managed dynamically.
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-amber">
+                        <div class="card-title">
+                            <span>2. Grid Carbon Volatility</span>
+                            <span class="tag tag-amber">Hourly Swings</span>
+                        </div>
+                        <div class="card-body">
+                            Greenhouse gas emissions from electricity vary dramatically by hour and region. Solar peaks produce abundant clean power midday, but evenings rely on carbon-intensive peaker plants. Running hyperscale datacenters flat burns dirty power unnecessarily.
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-cyan">
+                        <div class="card-title">
+                            <span>3. Peak Provisioning Cost</span>
+                            <span class="tag tag-cyan">&euro;1B/Year Grid Value</span>
+                        </div>
+                        <div class="card-body">
+                            Datacenter power infrastructure (substations, bus ducts, generators) is provisioned for <em>peak</em> consumption ($/MW/day). Flattening peaks saves billions in capital infrastructure while unlocking up to &euro;1B/year in value for electric grid operators.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card" style="margin-top: 0.5rem; background: rgba(16, 24, 32, 0.9);">
+                    <div class="card-title" style="margin-bottom: 0.35rem;">
+                        <span>The Paradigm Shift: From Passive Load to Dynamic Grid Asset</span>
+                        <span class="tag tag-green">Google Core Thesis</span>
+                    </div>
+                    <p class="card-body">
+                        Instead of treating datacenters as rigid power consumers that follow unpredictable user demand blindly, hyperscale compute can be molded as <strong>flexible demand</strong> that actively consumes power when and where local grid energy is cleanest.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 3: WORKLOAD TAXONOMY & FLEXIBILITY
+             =================================================================== -->
+        <section class="slide" data-slide="3" data-title="Workload Taxonomy">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Google Compute Classification</span>
+                    </div>
+                    <h2 class="slide-title">Workload Taxonomy: Inflexible vs. Flexible</h2>
+                    <p class="slide-subtitle">
+                        Unlocking temporal flexibility: batch computing jobs tolerate multi-hour delays as long as total daily throughput is preserved.
+                    </p>
+                </div>
+
+                <div class="grid-2">
+                    <!-- Inflexible Workloads -->
+                    <div class="glass-card card-accent-purple">
+                        <div class="card-title">
+                            <span>Inflexible Workloads (Zero Delay Tolerance)</span>
+                            <span class="tag tag-purple">100% Unshaped</span>
+                        </div>
+                        <div class="card-body">
+                            <p style="margin-bottom: 0.8rem;">
+                                User-facing production servers and cloud tenant allocations requiring instantaneous millisecond response:
+                            </p>
+                            <ul style="padding-left: 1.25rem; line-height: 1.8; margin-bottom: 1rem;">
+                                <li><strong>Google Search & Maps:</strong> Global query processing with strict latency budgets.</li>
+                                <li><strong>YouTube Live & Serving:</strong> Real-time video stream delivery.</li>
+                                <li><strong>Google Cloud Customer VMs:</strong> Dedicated guest virtual machines running enterprise software.</li>
+                            </ul>
+                            <div class="tag tag-purple" style="width: 100%; justify-content: center; padding: 0.5rem;">
+                                System Directive: Never delayed or throttle-limited by CICS.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flexible Workloads -->
+                    <div class="glass-card card-accent-green">
+                        <div class="card-title">
+                            <span>Temporally Flexible Workloads</span>
+                            <span class="tag tag-green">Delay Window &le; 24h</span>
+                        </div>
+                        <div class="card-body">
+                            <p style="margin-bottom: 0.8rem;">
+                                Internal batch processing pipelines that only require daily completion guarantees:
+                            </p>
+                            <ul style="padding-left: 1.25rem; line-height: 1.8; margin-bottom: 1rem;">
+                                <li><strong>Machine Learning Training:</strong> Model fine-tuning, embeddings, evaluations.</li>
+                                <li><strong>Video Transcoding:</strong> YouTube multi-resolution encoding pipelines.</li>
+                                <li><strong>BigQuery & Compaction:</strong> MapReduce, Flume pipelines, web index compaction.</li>
+                            </ul>
+                            <div class="formula-box">
+                                <span class="formula-highlight">&sum;<sub>h &isin; d</sub> U<sub>F</sub>(h) = T<sub>U,F</sub>(d)</span>
+                                <span style="color: var(--text-muted); margin-left: 0.75rem;">(Daily compute budget is strictly conserved)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-3" style="margin-top: 0.5rem;">
+                    <div class="stat-badge">
+                        <div class="stat-value" style="color: var(--c-purple);">~50-65%</div>
+                        <div class="stat-label">Inflexible Base Load Share</div>
+                    </div>
+                    <div class="stat-badge">
+                        <div class="stat-value" style="color: var(--c-green);">~35-50%</div>
+                        <div class="stat-label">Temporally Shapeable Capacity</div>
+                    </div>
+                    <div class="stat-badge">
+                        <div class="stat-value" style="color: var(--c-cyan);">24 Hours</div>
+                        <div class="stat-label">Day-Ahead Optimization Horizon</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 4: THE MECHANISM - VIRTUAL CAPACITY CURVES (VCC)
+             =================================================================== -->
+        <section class="slide" data-slide="4" data-title="Virtual Capacity Curves">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Cluster Operating System Integration</span>
+                    </div>
+                    <h2 class="slide-title">Virtual Capacity Curves (VCCs)</h2>
+                    <p class="slide-subtitle">
+                        Decoupling carbon optimization from real-time scheduling: Borg processes hundreds of thousands of jobs/sec without carbon overhead.
+                    </p>
+                </div>
+
+                <div class="grid-2-1">
+                    <div class="vcc-graph-wrap">
+                        <svg class="chart-svg" viewBox="0 0 700 300" id="vccDiagramSvg">
+                            <!-- Grid lines -->
+                            <line x1="50" y1="40" x2="680" y2="40" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
+                            <line x1="50" y1="120" x2="680" y2="120" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
+                            <line x1="50" y1="200" x2="680" y2="200" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
+                            <line x1="50" y1="260" x2="680" y2="260" stroke="rgba(255,255,255,0.2)"/>
+
+                            <!-- Physical Hardware Capacity (Dotted Gray line) -->
+                            <line x1="50" y1="50" x2="680" y2="50" stroke="#8899a6" stroke-width="2" stroke-dasharray="6"/>
+                            <text x="670" y="55" fill="#8899a6" font-size="11" font-family="monospace" text-anchor="end">Total Machine Capacity C(c)</text>
+
+                            <!-- Inflexible Base Load Fill (Purple) -->
+                            <path d="M 50 260 L 50 190 Q 200 170 350 180 T 680 195 L 680 260 Z" fill="rgba(157, 78, 221, 0.25)" stroke="var(--c-purple)" stroke-width="2"/>
+                            <text x="70" y="225" fill="#d8b4fe" font-size="12" font-weight="600">Inflexible Base Load (Always Runs)</text>
+
+                            <!-- Carbon Intensity Curve Background Hint (Orange/Red Dash) -->
+                            <path d="M 50 210 Q 200 180 350 80 T 680 210" fill="none" stroke="rgba(255, 71, 87, 0.4)" stroke-width="2" stroke-dasharray="3"/>
+                            <text x="360" y="70" fill="var(--c-red)" font-size="11" font-weight="600">Peak Carbon Intensity Window (Dirty Peakers)</text>
+
+                            <!-- VCC Curve (Dipping in Red) -->
+                            <path d="M 50 100 Q 200 110 350 210 T 680 115" fill="none" stroke="var(--c-red)" stroke-width="3.5"/>
+                            <text x="360" y="235" fill="var(--c-red)" font-size="12" font-weight="700">VCC Capping Limit (Suppresses Flexible Compute)</text>
+
+                            <!-- Flexible Compute Shift Fill -->
+                            <path d="M 50 100 Q 150 105 220 135 L 220 180 Q 150 175 50 190 Z" fill="rgba(0, 245, 155, 0.35)" stroke="var(--c-green)" stroke-width="1.5"/>
+                            <text x="80" y="145" fill="var(--c-green)" font-size="11" font-weight="600">Shifted Flexible Load &uarr;</text>
+
+                            <path d="M 480 160 Q 580 110 680 115 L 680 195 Q 580 185 480 185 Z" fill="rgba(0, 245, 155, 0.35)" stroke="var(--c-green)" stroke-width="1.5"/>
+                            <text x="520" y="150" fill="var(--c-green)" font-size="11" font-weight="600">Shifted Flexible Load &uarr;</text>
+
+                            <!-- Axis labels -->
+                            <text x="50" y="280" fill="var(--text-muted)" font-size="11">00:00 (Midnight)</text>
+                            <text x="340" y="280" fill="var(--text-muted)" font-size="11">12:00 (Noon)</text>
+                            <text x="630" y="280" fill="var(--text-muted)" font-size="11">23:00 (Night)</text>
+                        </svg>
+                    </div>
+
+                    <div class="glass-card card-accent-green">
+                        <div class="card-title">
+                            <span>How Borg Executes VCC</span>
+                            <span class="tag tag-green">Two-Step Optimization</span>
+                        </div>
+                        <div class="card-body">
+                            <ol style="padding-left: 1.2rem; line-height: 1.7; margin-bottom: 0.8rem;">
+                                <li><strong>Step 1 (CICS Optimizer):</strong> Runs at 6:00 PM PT. Generates 24 hourly VCC limits per cluster across Google's fleet.</li>
+                                <li><strong>Step 2 (Borg Scheduler):</strong> Borg views VCC as its physical CPU capacity ceiling. When VCC dips during dirty hours, admission control holds incoming batch jobs in queue.</li>
+                            </ol>
+                            <div class="formula-box" style="font-size: 0.8rem;">
+                                VCC<sup>(c)</sup>(h) = (U&#770;<sub>IF</sub> + (1 + &delta;) &tau;<sub>U</sub>/24) R&#770;<sup>(c)</sup>(h)
+                            </div>
+                            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.4rem;">
+                                <em>Zero modifications to Borg scheduling algorithms. Completely modular and resilient against scheduler crashes.</em>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 5: INTERACTIVE 24-HOUR LOAD SHAPING SIMULATOR
+             =================================================================== -->
+        <section class="slide" data-slide="5" data-title="Load Shaping Simulator">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Interactive Telemetry Simulation</span>
+                    </div>
+                    <h2 class="slide-title">24-Hour Load Shaping Simulator</h2>
+                    <p class="slide-subtitle">
+                        Simulate intraday carbon intensity swings and observe how CICS admission control delays batch jobs to eliminate fossil peaker emissions.
+                    </p>
+                </div>
+
+                <!-- Simulation Controls Bar -->
+                <div class="sim-control-bar">
+                    <button class="sim-btn" id="simPlayBtn">
+                        <span id="playIcon">&#9654;</span> <span id="playText">Play Timeline</span>
+                    </button>
+                    <button class="sim-btn active-mode" id="toggleCicsBtn">
+                        &#9679; CICS Active (Carbon-Aware)
+                    </button>
+                    <div class="timeline-slider-wrap">
+                        <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary);">Hour:</span>
+                        <input type="range" min="0" max="23" value="13" class="timeline-slider" id="hourSlider">
+                        <span style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--c-green); font-weight: 700;" id="hourDisplay">13:00 PT</span>
+                    </div>
+                    <button class="sim-btn" id="resetSimBtn">&#8635; Reset</button>
+                </div>
+
+                <!-- Interactive Simulator Chart and Live Readouts -->
+                <div class="grid-2-1">
+                    <div class="vcc-graph-wrap" style="height: 320px;">
+                        <svg class="chart-svg" viewBox="0 0 700 280" id="liveSimSvg">
+                            <!-- Background Grid -->
+                            <line x1="50" y1="40" x2="680" y2="40" stroke="rgba(255,255,255,0.06)"/>
+                            <line x1="50" y1="120" x2="680" y2="120" stroke="rgba(255,255,255,0.06)"/>
+                            <line x1="50" y1="200" x2="680" y2="200" stroke="rgba(255,255,255,0.06)"/>
+                            <line x1="50" y1="250" x2="680" y2="250" stroke="rgba(255,255,255,0.15)"/>
+
+                            <!-- Carbon Intensity Curve -->
+                            <path id="carbonCurvePath" d="" fill="none" stroke="var(--c-amber)" stroke-width="2.5" stroke-dasharray="4"/>
+
+                            <!-- Inflexible Base Load (Constant + daylight hump) -->
+                            <path id="inflexibleLoadPath" d="" fill="rgba(157, 78, 221, 0.25)" stroke="var(--c-purple)" stroke-width="2"/>
+
+                            <!-- Flexible Compute Profile (Dynamic based on CICS state) -->
+                            <path id="flexibleLoadPath" d="" fill="rgba(0, 245, 155, 0.3)" stroke="var(--c-green)" stroke-width="2.5"/>
+
+                            <!-- VCC Ceiling Line -->
+                            <path id="vccCeilingPath" d="" fill="none" stroke="var(--c-red)" stroke-width="3"/>
+
+                            <!-- Scrubber Cursor Line -->
+                            <line id="scrubberLine" x1="390" y1="30" x2="390" y2="250" stroke="#ffffff" stroke-width="2" stroke-dasharray="2"/>
+                            <circle id="scrubberDot" cx="390" cy="180" r="6" fill="var(--c-green)" stroke="#ffffff" stroke-width="2"/>
+                        </svg>
+                    </div>
+
+                    <!-- Live Metric Telemetry Panel -->
+                    <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div class="card-title">
+                                <span>Live Cluster Telemetry</span>
+                                <span class="tag tag-green" id="simStatusTag">Active Shaping</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Grid Carbon Intensity:</span>
+                                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--c-amber);" id="valCarbon">440 gCO2e/kWh</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Cluster Power Draw:</span>
+                                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--c-green);" id="valPower">92.4 MW (-7.6%)</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Flexible Tasks in Queue:</span>
+                                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--c-cyan);" id="valQueue">1,450 Jobs</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Avoided Daily Carbon:</span>
+                                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--c-green);" id="valEmissions">18.4 Metric Tons</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 0.75rem; margin-top: 1rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45;" id="simLogText">
+                            &bull; <strong>13:00 PT Peak Carbon:</strong> VCC reduces cluster CPU headroom. Borg queues ML training & Flume batch jobs, waiting for low-carbon evening wind generation.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 6: THE ANALYTICS PIPELINES ARCHITECTURE
+             =================================================================== -->
+        <section class="slide" data-slide="6" data-title="Analytics Architecture">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>End-to-End System Design</span>
+                    </div>
+                    <h2 class="slide-title">The Four Analytical Pipelines (Figure 3)</h2>
+                    <p class="slide-subtitle">
+                        Rigorous daily data workflow: gathering carbon forecasts, fitting power models, predicting compute demand, and running risk-aware optimization.
+                    </p>
+                </div>
+
+                <!-- 5 Interactive Pipeline Stages -->
+                <div class="pipeline-flow">
+                    <div class="pipeline-card active" data-pipe="0">
+                        <div class="pipeline-icon" style="color: var(--c-amber);">&#9889;</div>
+                        <div class="pipeline-num">PIPELINE 01</div>
+                        <div class="pipeline-title">Carbon Fetching</div>
+                        <div class="pipeline-desc">Hourly grid emission forecasts from Tomorrow.io</div>
+                    </div>
+                    <div class="pipeline-card" data-pipe="1">
+                        <div class="pipeline-icon" style="color: var(--c-cyan);">&#9881;</div>
+                        <div class="pipeline-num">PIPELINE 02</div>
+                        <div class="pipeline-title">Power Modeling</div>
+                        <div class="pipeline-desc">Piecewise linear CPU &rarr; Wattage models (MAPE &lt; 5%)</div>
+                    </div>
+                    <div class="pipeline-card" data-pipe="2">
+                        <div class="pipeline-icon" style="color: var(--c-purple);">&#128200;</div>
+                        <div class="pipeline-num">PIPELINE 03</div>
+                        <div class="pipeline-title">Demand Forecast</div>
+                        <div class="pipeline-desc">EWMA + adaptive day-ahead linear regression</div>
+                    </div>
+                    <div class="pipeline-card" data-pipe="3">
+                        <div class="pipeline-icon" style="color: var(--c-green);">&#9878;</div>
+                        <div class="pipeline-num">PIPELINE 04</div>
+                        <div class="pipeline-title">Risk Optimizer</div>
+                        <div class="pipeline-desc">Fleetwide optimization under 97th percentile risk</div>
+                    </div>
+                    <div class="pipeline-card" data-pipe="4">
+                        <div class="pipeline-icon" style="color: var(--c-red);">&#8644;</div>
+                        <div class="pipeline-num">FEEDBACK LOOP</div>
+                        <div class="pipeline-title">SLO Guardrails</div>
+                        <div class="pipeline-desc">Automatic 7-day circuit breaker if thresholds trip</div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Detail Inspector for Selected Pipeline -->
+                <div class="pipeline-detail-pane" id="pipeDetailPane">
+                    <div>
+                        <div class="card-title" id="pipeDetailTitle" style="color: var(--c-green);">
+                            1. Carbon Fetching Pipeline (Tomorrow / ElectricityMap)
+                        </div>
+                        <p class="card-body" id="pipeDetailDesc" style="margin-bottom: 0.8rem;">
+                            Ingests 48-hour forward-looking average carbon intensity forecasts &eta;<sup>(c)</sup>(h) in kgCO<sub>2</sub>e/kWh for all Google datacenter grid zones globally. The optimizer runs at 6:00 PM PT, utilizing forecast horizons ranging from 6 to 32 hours ahead.
+                        </p>
+                        <div class="formula-box" id="pipeDetailFormula">
+                            MAPE(&eta;<sup>(c)</sup>) &in; [0.4%, 26%] across worldwide regional interconnects
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 1.2rem; border: 1px solid var(--border-subtle);">
+                        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-cyan); margin-bottom: 0.4rem;">
+                            OPERATIONAL SPECIFICATIONS
+                        </div>
+                        <ul style="font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary); padding-left: 1.2rem;" id="pipeDetailSpecs">
+                            <li><strong>Update Frequency:</strong> Hourly telemetry refresh.</li>
+                            <li><strong>Execution Schedule:</strong> Daily run at 6:00 PM Pacific Standard Time.</li>
+                            <li><strong>Geographic Scope:</strong> &gt;20 datacenters across 4 continents.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 7: MATHEMATICAL OPTIMIZATION & CONSTRAINTS
+             =================================================================== -->
+        <section class="slide" data-slide="7" data-title="Optimization Formulation">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Rigorous Formulation</span>
+                    </div>
+                    <h2 class="slide-title">Mathematical Optimization & Constraints</h2>
+                    <p class="slide-subtitle">
+                        Co-optimizing global grid carbon emissions and infrastructure peak power charges under five hard physical constraints.
+                    </p>
+                </div>
+
+                <!-- The Objective Function -->
+                <div class="glass-card card-accent-green">
+                    <div class="card-title">
+                        <span>Fleetwide Co-Optimization Objective (Equation 6)</span>
+                        <span class="tag tag-green">Linear / Quadratic Program</span>
+                    </div>
+                    <div class="formula-box" style="font-size: 1.05rem; padding: 1.1rem;">
+                        min<sub>&delta;, y</sub> &nbsp;
+                        <span style="color: var(--c-green); font-weight: 700;">&lambda;<sub>e</sub> &sum;<sub>c,h</sub> &eta;<sup>(c)</sup>(h) [ Pow<sup>(c)</sup>(U&#770;<sub>nom</sub>) + &pi;<sup>(c)</sup>(U&#770;<sub>nom</sub>) &delta;(c,h) &tau;<sub>U</sub><sup>(c)</sup>/24 ]</span>
+                        &nbsp;+&nbsp;
+                        <span style="color: var(--c-cyan); font-weight: 700;">&lambda;<sub>p</sub> &sum;<sub>c</sub> y<sup>(c)</sup>(d)</span>
+                    </div>
+                    <div class="grid-2" style="margin-top: 0.8rem;">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            <strong style="color: var(--c-green);">&lambda;<sub>e</sub> = $40 / kgCO<sub>2</sub>e:</strong> Weight penalizing expected fleet carbon emissions based on local grid intensity forecasts &eta;<sup>(c)</sup>(h).
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            <strong style="color: var(--c-cyan);">&lambda;<sub>p</sub> = $10 / MW / day:</strong> Weight penalizing peak power infrastructure demand y<sup>(c)</sup>(d) to reduce substation capex.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- The 4 Core Constraints -->
+                <div class="grid-4" style="margin-top: 0.5rem;">
+                    <div class="glass-card">
+                        <div class="tag tag-green" style="margin-bottom: 0.4rem;">Constraint 1</div>
+                        <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">Work Conservation</div>
+                        <div class="formula-box" style="font-size: 0.8rem; padding: 0.4rem;">&sum;<sub>h</sub> &delta;(c,h) = 0</div>
+                        <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Zero dropped computation. All daily flexible tasks complete within the 24h window.
+                        </p>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="tag tag-amber" style="margin-bottom: 0.4rem;">Constraint 2</div>
+                        <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">Power Capping</div>
+                        <div class="formula-box" style="font-size: 0.75rem; padding: 0.4rem;">&le; U&#773;<sub>pow</sub> - (U<sub>IF</sub>)<sub>1-&gamma;</sub></div>
+                        <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Prevents power domain circuit breakers from tripping (probability &le; &gamma;).
+                        </p>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="tag tag-cyan" style="margin-bottom: 0.4rem;">Constraint 3</div>
+                        <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">Utility Contracts</div>
+                        <div class="formula-box" style="font-size: 0.8rem; padding: 0.4rem;">&sum;<sub>c</sub> y<sup>(c)</sup> &le; L<sub>cont</sub><sup>(dc)</sup></div>
+                        <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Strictly obeys campus-level electricity supply contracts and grid agreements.
+                        </p>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="tag tag-red" style="margin-bottom: 0.4rem;">Constraint 4</div>
+                        <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">Machine Capacity</div>
+                        <div class="formula-box" style="font-size: 0.8rem; padding: 0.4rem;">VCC<sup>(c)</sup>(h) &le; C<sup>(c)</sup>(d)</div>
+                        <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Virtual capacity curves never exceed the cluster's physical server hardware limits.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 8: SAFETY, RELIABILITY & THE 97TH PERCENTILE RULE
+             =================================================================== -->
+        <section class="slide" data-slide="8" data-title="Safety & Risk Management">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Google Site Reliability Engineering (SRE)</span>
+                    </div>
+                    <h2 class="slide-title">Production Safety & The 97th Percentile Rule</h2>
+                    <p class="slide-subtitle">
+                        How CICS guarantees zero impact on user SLAs: robust statistical safety buffers and automatic 7-day circuit breakers.
+                    </p>
+                </div>
+
+                <div class="grid-3">
+                    <div class="glass-card card-accent-green">
+                        <div class="card-title">
+                            <span>The 97th Percentile Safety Buffer</span>
+                            <span class="tag tag-green">&le; 3% Risk Bound</span>
+                        </div>
+                        <div class="card-body">
+                            Flexible daily compute is a stochastic process. To ensure jobs are never starved, the optimizer plans against the <strong>97th percentile of total daily reservations</strong>:
+                            <div class="formula-box" style="font-size: 0.82rem; margin: 0.75rem 0;">
+                                &Theta;<sup>(c)</sup>(d) = T&#770;<sub>R</sub><sup>(c)</sup>(d) [1 + ({&epsilon;<sup>(c)</sup>(n)})<sub>.97</sub>]
+                            </div>
+                            Evaluated over rolling 90-day historical forecast errors. Extra buffer is injected by inflating flexible budget with factor <strong>&alpha;<sup>(c)</sup>(d) &ge; 1</strong>.
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-amber">
+                        <div class="card-title">
+                            <span>Strict Workload SLO Target</span>
+                            <span class="tag tag-amber">&le; 1 Day / Month</span>
+                        </div>
+                        <div class="card-body">
+                            The strict operational objective states: <em>The cluster-level daily flexible compute capacity requirement cannot be violated more than 1 day per month</em> (roughly 3 days in a 100-day window).
+                            <p style="margin-top: 0.75rem;">
+                                If actual demand exceeds the 97th percentile threshold for <strong>2 consecutive days</strong>, the cluster enters emergency protection mode.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-red">
+                        <div class="card-title">
+                            <span>Automatic 7-Day Fail-Safe Trip</span>
+                            <span class="tag tag-red">Autonomous Guard</span>
+                        </div>
+                        <div class="card-body">
+                            When the 2-day trigger fires, CICS <strong>completely disables load shaping for that cluster for 7 consecutive days</strong>.
+                            <p style="margin-top: 0.75rem;">
+                                This gives the load forecasting ML models a full week to adapt to structural traffic growth or sudden transient spikes before re-engaging carbon optimization.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card" style="background: rgba(16, 24, 32, 0.85); margin-top: 0.5rem;">
+                    <div class="card-title" style="margin-bottom: 0.4rem;">
+                        <span>Unbiased User Delay Guarantee</span>
+                        <span class="tag tag-cyan">Impartial Queuing</span>
+                    </div>
+                    <p class="card-body">
+                        When flexible compute is queued during high-carbon hours, Borg's admission controller delays incoming jobs in an unbiased manner across internal engineering teams. No single application team bears unfair latency penalties, ensuring organization-wide buy-in.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 9: EMPIRICAL RESULTS & RANDOMIZED CONTROLLED TRIALS
+             =================================================================== -->
+        <section class="slide" data-slide="9" data-title="Fleetwide Results">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Production Fleet Telemetry</span>
+                    </div>
+                    <h2 class="slide-title">Fleetwide Results & Controlled Trials (Figures 6, 7 & 8)</h2>
+                    <p class="slide-subtitle">
+                        Empirical validation from live Google datacenters: randomized controlled trials show sustained power drops during peak grid carbon hours.
+                    </p>
+                </div>
+
+                <!-- Tabs header -->
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="tabClusterX">Cluster X (High Predictability)</button>
+                    <button class="tab-btn" data-tab="tabClusterY">Cluster Y (High Uncertainty)</button>
+                    <button class="tab-btn" data-tab="tabRct">Fleetwide 2-Month RCT (Figure 8)</button>
+                </div>
+
+                <!-- Tab 1: Cluster X -->
+                <div class="tab-content active" id="tabClusterX">
+                    <div class="grid-2-1">
+                        <div class="vcc-graph-wrap" style="height: 240px; padding: 0.85rem 1rem;">
+                            <svg class="chart-svg" viewBox="0 0 700 240">
+                                <!-- Baseline Grid -->
+                                <line x1="50" y1="30" x2="680" y2="30" stroke="rgba(255,255,255,0.06)"/>
+                                <line x1="50" y1="100" x2="680" y2="100" stroke="rgba(255,255,255,0.06)"/>
+                                <line x1="50" y1="170" x2="680" y2="170" stroke="rgba(255,255,255,0.06)"/>
+                                <line x1="50" y1="210" x2="680" y2="210" stroke="rgba(255,255,255,0.15)"/>
+
+                                <!-- VCC line (Red) -->
+                                <path d="M 50 45 Q 150 50 250 125 L 450 125 Q 550 50 680 45" fill="none" stroke="var(--c-red)" stroke-width="3"/>
+                                <!-- Actual Reservations (Blue dash) -->
+                                <path d="M 50 60 Q 150 65 250 135 L 450 135 Q 550 65 680 70" fill="none" stroke="var(--c-cyan)" stroke-width="2" stroke-dasharray="4"/>
+                                <!-- Power Consumption (Orange line showing 8% dip for 6h) -->
+                                <path d="M 50 145 Q 150 145 250 185 L 450 185 Q 550 145 680 150" fill="none" stroke="var(--c-amber)" stroke-width="3"/>
+
+                                <!-- Carbon Intensity Spike -->
+                                <path d="M 50 190 Q 150 190 250 60 L 450 60 Q 550 190 680 190" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="3"/>
+
+                                <text x="280" y="115" fill="var(--c-red)" font-size="11" font-weight="700">VCC Drops ~50%</text>
+                                <text x="280" y="200" fill="var(--c-amber)" font-size="12" font-weight="700">~8% Power Drop for 6 Continuous Hours</text>
+                                <text x="280" y="50" fill="#9ca3af" font-size="11">Peak Carbon Intensity</text>
+                            </svg>
+                        </div>
+                        <div class="glass-card card-accent-green" style="padding: 1.15rem;">
+                            <div class="card-title">
+                                <span>Cluster X Analysis</span>
+                                <span class="tag tag-green">6-Hour Drop</span>
+                            </div>
+                            <div class="card-body" style="font-size: 0.88rem;">
+                                In clusters where compute demand is highly predictable (forecast error low):
+                                <ul style="padding-left: 1.2rem; line-height: 1.6; margin: 0.4rem 0;">
+                                    <li>VCC drops flexible compute by <strong>~50% during peak carbon hours</strong>.</li>
+                                    <li>Drives an <strong>8% drop in total cluster electrical power</strong>.</li>
+                                    <li>Drop is sustained for <strong>6 full consecutive hours</strong>.</li>
+                                </ul>
+                                Demonstrates maximum carbon abatement capability when workload predictability is high.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Cluster Y -->
+                <div class="tab-content" id="tabClusterY">
+                    <div class="grid-2-1">
+                        <div class="vcc-graph-wrap" style="height: 240px; padding: 0.85rem 1rem;">
+                            <svg class="chart-svg" viewBox="0 0 700 240">
+                                <line x1="50" y1="210" x2="680" y2="210" stroke="rgba(255,255,255,0.15)"/>
+                                <!-- VCC line with shorter dip -->
+                                <path d="M 50 40 Q 220 45 300 120 L 400 120 Q 480 45 680 40" fill="none" stroke="var(--c-red)" stroke-width="3"/>
+                                <!-- Power line dipping for only 3h -->
+                                <path d="M 50 145 Q 220 145 300 180 L 400 180 Q 480 145 680 150" fill="none" stroke="var(--c-amber)" stroke-width="3"/>
+                                <text x="310" y="170" fill="var(--c-amber)" font-size="12" font-weight="700">~8% Power Drop (3 Hours Only)</text>
+                            </svg>
+                        </div>
+                        <div class="glass-card card-accent-amber" style="padding: 1.15rem;">
+                            <div class="card-title">
+                                <span>Cluster Y Analysis</span>
+                                <span class="tag tag-amber">3-Hour Window</span>
+                            </div>
+                            <div class="card-body" style="font-size: 0.88rem;">
+                                In clusters with higher workload variance:
+                                <ul style="padding-left: 1.2rem; line-height: 1.6; margin: 0.4rem 0;">
+                                    <li>The 97th percentile risk buffer forces the average VCC value ~33% higher than actual demand.</li>
+                                    <li>VCC still drops ~50%, but the window is narrower: <strong>3 hours vs 6 hours</strong>.</li>
+                                    <li>Protects Google applications while capturing available carbon savings safely.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Fleetwide RCT -->
+                <div class="tab-content" id="tabRct">
+                    <div class="grid-2-1">
+                        <div class="vcc-graph-wrap" style="height: 240px; padding: 0.85rem 1rem;">
+                            <svg class="chart-svg" viewBox="0 0 700 240">
+                                <line x1="50" y1="210" x2="680" y2="210" stroke="rgba(255,255,255,0.15)"/>
+                                <!-- Carbon Intensity Curve (Fig 8) -->
+                                <path d="M 50 180 Q 200 170 350 50 Q 500 170 680 180" fill="none" stroke="#6b7280" stroke-width="1.8" stroke-dasharray="3"/>
+                                <text x="350" y="40" fill="#9ca3af" font-size="10" text-anchor="middle">Average Grid Carbon Intensity Peak</text>
+
+                                <!-- 95% Confidence Interval Band for Shaped Group -->
+                                <path d="M 50 135 Q 200 135 350 155 Q 500 135 680 135 L 680 148 Q 500 148 350 168 Q 200 148 50 148 Z" fill="rgba(0, 245, 155, 0.15)"/>
+
+                                <!-- Control Group (Cyan line, Fig 8: Not shaped) -->
+                                <path d="M 50 136 Q 350 134 680 136" fill="none" stroke="var(--c-cyan)" stroke-width="2.5"/>
+                                <!-- Shaped Group (Green line, Fig 8: Shaped 1-2% drop) -->
+                                <path d="M 50 137 Q 200 137 350 160 Q 500 137 680 137" fill="none" stroke="var(--c-green)" stroke-width="2.5"/>
+
+                                <text x="120" y="125" fill="var(--c-cyan)" font-size="11" font-weight="600">Control Group (Untreated)</text>
+                                <text x="350" y="180" fill="var(--c-green)" font-size="11" font-weight="700" text-anchor="middle">Shaped Group: 1-2% Fleetwide Power Drop (95% CI)</text>
+                            </svg>
+                        </div>
+                        <div class="glass-card card-accent-cyan" style="padding: 1.15rem;">
+                            <div class="card-title">
+                                <span>2-Month Randomized Trial (RCT)</span>
+                                <span class="tag tag-cyan">50/50 A/B Split</span>
+                            </div>
+                            <div class="card-body" style="font-size: 0.88rem;">
+                                Controlled experiment conducted across entire Google campus:
+                                <ul style="padding-left: 1.2rem; line-height: 1.6; margin: 0.4rem 0;">
+                                    <li>Clusters randomly assigned to shaped vs control with 50% probability daily.</li>
+                                    <li>Across all treated days, <strong>cluster power dropped 1%–2% during peak carbon hours</strong>.</li>
+                                    <li>Statistically verified at <strong>95% confidence interval</strong> across hundreds of cluster-days.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-3" style="margin-top: 0.25rem;">
+                    <div class="stat-badge" style="padding: 0.65rem 1rem;">
+                        <div class="stat-value" style="color: var(--c-green); font-size: 1.6rem;">1% - 2%</div>
+                        <div class="stat-label">Fleetwide Peak Power Drop (RCT)</div>
+                    </div>
+                    <div class="stat-badge" style="padding: 0.65rem 1rem;">
+                        <div class="stat-value" style="color: var(--c-amber); font-size: 1.6rem;">8%</div>
+                        <div class="stat-label">Single Cluster Power Drop (6h)</div>
+                    </div>
+                    <div class="stat-badge" style="padding: 0.65rem 1rem;">
+                        <div class="stat-value" style="color: var(--c-cyan); font-size: 1.6rem;">&lt; 5%</div>
+                        <div class="stat-label">Power Model MAPE (&gt;95% of Domains)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             SLIDE 10: CONCLUSION & THE FUTURE OF SPATIAL SHIFTING
+             =================================================================== -->
+        <section class="slide" data-slide="10" data-title="The Next Frontier">
+            <div class="slide-container">
+                <div class="slide-header">
+                    <div class="slide-eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        <span>Long-Term Decarbonization Vision</span>
+                    </div>
+                    <h2 class="slide-title">Conclusion & The Next Frontier: Spatial Shifting</h2>
+                    <p class="slide-subtitle">
+                        Transforming the world's largest compute infrastructure from a static energy burden into a dynamic, planet-scale climate asset.
+                    </p>
+                </div>
+
+                <div class="grid-3">
+                    <div class="glass-card card-accent-green">
+                        <div class="card-title">
+                            <span>1. Proven Production Feasibility</span>
+                            <span class="tag tag-green">First at Scale</span>
+                        </div>
+                        <div class="card-body">
+                            Google CICS demonstrates that carbon-aware computing can be deployed at hyperscale across 20+ datacenters and 15.5 TWh of electricity with zero disruption to real-time production Borg scheduling or end-user cloud availability.
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-cyan">
+                        <div class="card-title">
+                            <span>2. Spatial Compute Shifting</span>
+                            <span class="tag tag-cyan">Follow the Sun & Wind</span>
+                        </div>
+                        <div class="card-body">
+                            While CICS shifts batch jobs in <em>time</em> within a cluster, the ongoing expansion shifts compute across <em>geographies</em>. When night falls in Europe, flexible workloads migrate across transatlantic fiber to US solar grids or Nordic wind farms.
+                        </div>
+                    </div>
+
+                    <div class="glass-card card-accent-purple">
+                        <div class="card-title">
+                            <span>3. Path to 24/7 Carbon-Free Energy</span>
+                            <span class="tag tag-purple">Google 2030 Goal</span>
+                        </div>
+                        <div class="card-body">
+                            Temporal and spatial compute shaping provides the software foundation for Google's ambitious pledge to operate on <strong>100% 24/7 Carbon-Free Energy (CFE)</strong> by 2030, co-optimizing with wholesale energy markets.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Callout citation -->
+                <div class="glass-card" style="background: rgba(16, 24, 32, 0.95); margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--text-main);">
+                            Paper Citation & Reference
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                            Radovanovi&cacute; et al., <em>&ldquo;Carbon-Aware Computing for Datacenters,&rdquo;</em> IEEE Transactions on Power Systems, vol. 38, no. 2, pp. 1270-1280, March 2023.
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <span class="tag tag-green">IEEE PES Award Candidate</span>
+                        <span class="tag tag-cyan">Production System</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Floating Bottom Navigation Dock -->
+    <nav class="nav-dock">
+        <button class="nav-btn" id="prevSlideBtn" title="Previous Slide (Left Arrow)">&#8592;</button>
+        <div class="slide-dots" id="slideDotsContainer"></div>
+        <button class="nav-btn" id="nextSlideBtn" title="Next Slide (Right Arrow)">&#8594;</button>
+        <div class="nav-divider"></div>
+        <button class="nav-btn" id="autoplayBtn" title="Autoplay / Presenter Mode (P)">&#9654;</button>
+        <button class="nav-btn text-btn" id="overviewBtn" title="Slide Overview (G)">
+            <span>&#9638;</span> <span>Overview</span>
+        </button>
+        <button class="nav-btn" id="fullscreenBtn" title="Toggle Fullscreen (F)">&#x26F6;</button>
+        <button class="nav-btn" id="helpBtn" title="Keyboard Shortcuts (?)">?</button>
+    </nav>
+
+    <!-- Slide Overview Modal -->
+    <div class="modal-overlay" id="overviewModal">
+        <div class="overview-grid" id="overviewGrid"></div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="glass-card" style="max-width: 480px; width: 100%; border-color: rgba(0, 245, 155, 0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+            <div class="card-title" style="color: var(--c-green); margin-bottom: 1rem;">
+                <span>Presentation Controls</span>
+                <span class="tag tag-green">Shortcuts</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.9rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                    <span style="color: var(--text-secondary);">Next Slide</span>
+                    <span class="tag tag-cyan">&rarr; / Space / PageDown</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                    <span style="color: var(--text-secondary);">Previous Slide</span>
+                    <span class="tag tag-cyan">&larr; / Backspace / PageUp</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                    <span style="color: var(--text-secondary);">Slide Grid Overview</span>
+                    <span class="tag tag-green">G</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                    <span style="color: var(--text-secondary);">Toggle Fullscreen</span>
+                    <span class="tag tag-green">F</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+                    <span style="color: var(--text-secondary);">Autoplay (8s Loop)</span>
+                    <span class="tag tag-amber">P</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);">Close Modal</span>
+                    <span class="tag tag-red">Escape</span>
+                </div>
+            </div>
+            <button class="sim-btn" style="width: 100%; justify-content: center; margin-top: 1.25rem;" id="closeHelpBtn">Got It</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         INTERACTIVE SCRIPTS & DATA VISUALIZATIONS
+         ========================================================================== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Presentation State
+            let currentSlideIndex = 0;
+            const slides = document.querySelectorAll('.slide');
+            const totalSlides = slides.length;
+            const progressFill = document.getElementById('progressFill');
+            const slidePill = document.getElementById('slidePill');
+            const slideDotsContainer = document.getElementById('slideDotsContainer');
+            const overviewModal = document.getElementById('overviewModal');
+            const overviewGrid = document.getElementById('overviewGrid');
+            const helpModal = document.getElementById('helpModal');
+            const autoplayBtn = document.getElementById('autoplayBtn');
+            const helpBtn = document.getElementById('helpBtn');
+            const closeHelpBtn = document.getElementById('closeHelpBtn');
+
+            let isAutoplayActive = false;
+            let autoplayTimer = null;
+
+            function toggleAutoplay() {
+                isAutoplayActive = !isAutoplayActive;
+                if (isAutoplayActive) {
+                    autoplayBtn.innerHTML = '&#10074;&#10074;';
+                    autoplayBtn.style.color = 'var(--c-amber)';
+                    autoplayTimer = setInterval(() => {
+                        currentSlideIndex = (currentSlideIndex + 1) % totalSlides;
+                        goToSlide(currentSlideIndex);
+                    }, 8000);
+                } else {
+                    autoplayBtn.innerHTML = '&#9654;';
+                    autoplayBtn.style.color = '';
+                    clearInterval(autoplayTimer);
+                }
+            }
+            if (autoplayBtn) autoplayBtn.addEventListener('click', toggleAutoplay);
+
+            function toggleHelp() {
+                helpModal.classList.toggle('open');
+            }
+            function closeHelp() {
+                helpModal.classList.remove('open');
+            }
+            if (helpBtn) helpBtn.addEventListener('click', toggleHelp);
+            if (closeHelpBtn) closeHelpBtn.addEventListener('click', closeHelp);
+            if (helpModal) helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) closeHelp();
+            });
+
+            // Touch Swipe Support
+            let touchStartX = 0;
+            let touchEndX = 0;
+            window.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+            window.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                if (touchStartX - touchEndX > 50) nextSlide();
+                else if (touchEndX - touchStartX > 50) prevSlide();
+            }, { passive: true });
+
+            // Generate slide dots & overview thumbnails
+            slides.forEach((slide, idx) => {
+                const title = slide.getAttribute('data-title') || `Slide ${idx + 1}`;
+                
+                // Dot
+                const dot = document.createElement('div');
+                dot.className = `slide-dot ${idx === 0 ? 'active' : ''}`;
+                dot.title = `${idx + 1}. ${title}`;
+                dot.addEventListener('click', () => goToSlide(idx));
+                slideDotsContainer.appendChild(dot);
+
+                // Thumbnail
+                const thumb = document.createElement('div');
+                thumb.className = `overview-thumb ${idx === 0 ? 'current' : ''}`;
+                thumb.innerHTML = `
+                    <div class="overview-num">SLIDE 0${idx + 1}</div>
+                    <div class="overview-name">${title}</div>
+                `;
+                thumb.addEventListener('click', () => {
+                    goToSlide(idx);
+                    closeOverview();
+                });
+                overviewGrid.appendChild(thumb);
+            });
+
+            function updateUI() {
+                // Update slides active state
+                slides.forEach((s, idx) => {
+                    s.classList.toggle('active', idx === currentSlideIndex);
+                });
+
+                // Update dots
+                const dots = slideDotsContainer.querySelectorAll('.slide-dot');
+                dots.forEach((d, idx) => {
+                    d.classList.toggle('active', idx === currentSlideIndex);
+                });
+
+                // Update overview thumbnails
+                const thumbs = overviewGrid.querySelectorAll('.overview-thumb');
+                thumbs.forEach((t, idx) => {
+                    t.classList.toggle('current', idx === currentSlideIndex);
+                });
+
+                // Update Progress bar & pill
+                const pct = ((currentSlideIndex + 1) / totalSlides) * 100;
+                progressFill.style.width = `${pct}%`;
+                const slideNumStr = String(currentSlideIndex + 1).padStart(2, '0');
+                slidePill.textContent = `Slide ${slideNumStr} / ${String(totalSlides).padStart(2, '0')}`;
+            }
+
+            function goToSlide(index) {
+                if (index < 0) index = 0;
+                if (index >= totalSlides) index = totalSlides - 1;
+                currentSlideIndex = index;
+                updateUI();
+            }
+
+            function nextSlide() {
+                if (currentSlideIndex < totalSlides - 1) {
+                    goToSlide(currentSlideIndex + 1);
+                }
+            }
+
+            function prevSlide() {
+                if (currentSlideIndex > 0) {
+                    goToSlide(currentSlideIndex - 1);
+                }
+            }
+
+            // Keyboard navigation
+            window.addEventListener('keydown', (e) => {
+                if (overviewModal.classList.contains('open') && e.key === 'Escape') {
+                    closeOverview();
+                    return;
+                }
+                if (helpModal.classList.contains('open') && e.key === 'Escape') {
+                    closeHelp();
+                    return;
+                }
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'PageUp') {
+                    prevSlide();
+                } else if (e.key === 'g' || e.key === 'G') {
+                    toggleOverview();
+                } else if (e.key === 'f' || e.key === 'F') {
+                    toggleFullscreen();
+                } else if (e.key === 'p' || e.key === 'P') {
+                    toggleAutoplay();
+                } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+                    toggleHelp();
+                }
+            });
+
+            document.getElementById('nextSlideBtn').addEventListener('click', nextSlide);
+            document.getElementById('prevSlideBtn').addEventListener('click', prevSlide);
+
+            // Fullscreen toggle
+            function toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+
+            // Overview modal toggle
+            function toggleOverview() {
+                overviewModal.classList.toggle('open');
+            }
+            function closeOverview() {
+                overviewModal.classList.remove('open');
+            }
+            document.getElementById('overviewBtn').addEventListener('click', toggleOverview);
+            overviewModal.addEventListener('click', (e) => {
+                if (e.target === overviewModal) closeOverview();
+            });
+
+            // ===================================================================
+            // CANVAS ANIMATION: GLOBAL GRID MESH (SLIDE 1)
+            // ===================================================================
+            const canvas = document.getElementById('heroGlobeCanvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                let width, height;
+
+                function resizeCanvas() {
+                    width = canvas.width = canvas.parentElement.clientWidth;
+                    height = canvas.height = canvas.parentElement.clientHeight;
+                }
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+
+                // Simulated Google datacenter nodes across 4 continents
+                const nodes = [
+                    { x: 0.22, y: 0.35, label: "The Dalles, OR", carbon: 0.15 },
+                    { x: 0.28, y: 0.45, label: "Council Bluffs, IA", carbon: 0.8 },
+                    { x: 0.34, y: 0.48, label: "Mayes County, OK", carbon: 0.65 },
+                    { x: 0.36, y: 0.42, label: "Ashburn, VA", carbon: 0.75 },
+                    { x: 0.32, y: 0.82, label: "Quilicura, Chile", carbon: 0.3 },
+                    { x: 0.52, y: 0.30, label: "Dublin, Ireland", carbon: 0.4 },
+                    { x: 0.55, y: 0.32, label: "Eemshaven, NL", carbon: 0.5 },
+                    { x: 0.58, y: 0.28, label: "Hamina, Finland", carbon: 0.1 },
+                    { x: 0.56, y: 0.38, label: "St. Ghislain, BE", carbon: 0.35 },
+                    { x: 0.78, y: 0.48, label: "Changhua, Taiwan", carbon: 0.85 },
+                    { x: 0.84, y: 0.54, label: "Singapore", carbon: 0.7 }
+                ];
+
+                let frame = 0;
+                function drawMesh() {
+                    ctx.clearRect(0, 0, width, height);
+                    frame += 0.02;
+
+                    // Draw connections
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < nodes.length; i++) {
+                        for (let j = i + 1; j < nodes.length; j++) {
+                            const n1 = nodes[i];
+                            const n2 = nodes[j];
+                            const x1 = n1.x * width;
+                            const y1 = n1.y * height;
+                            const x2 = n2.x * width;
+                            const y2 = n2.y * height;
+                            const dist = Math.hypot(x2 - x1, y2 - y1);
+
+                            if (dist < width * 0.4) {
+                                ctx.strokeStyle = `rgba(0, 210, 255, ${0.12 * (1 - dist / (width * 0.4))})`;
+                                ctx.beginPath();
+                                ctx.moveTo(x1, y1);
+                                ctx.lineTo(x2, y2);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+
+                    // Draw Nodes and carbon pulse
+                    nodes.forEach((n, i) => {
+                        const px = n.x * width;
+                        const py = n.y * height;
+                        const pulse = Math.sin(frame + i) * 3 + 6;
+
+                        // Color based on carbon intensity
+                        let color = '#00f59b';
+                        if (n.carbon > 0.6) color = '#ff4757';
+                        else if (n.carbon > 0.3) color = '#ffb800';
+
+                        // Halo
+                        ctx.fillStyle = color === '#00f59b' ? 'rgba(0,245,155,0.18)' : (color === '#ff4757' ? 'rgba(255,71,87,0.18)' : 'rgba(255,184,0,0.18)');
+                        ctx.beginPath();
+                        ctx.arc(px, py, pulse + 6, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Core
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(px, py, 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Label
+                        ctx.fillStyle = '#9cb1c4';
+                        ctx.font = '10px monospace';
+                        ctx.fillText(n.label, px + 8, py + 3);
+                    });
+
+                    requestAnimationFrame(drawMesh);
+                }
+                drawMesh();
+            }
+
+            // ===================================================================
+            // INTERACTIVE SIMULATOR (SLIDE 5)
+            // ===================================================================
+            const hourSlider = document.getElementById('hourSlider');
+            const hourDisplay = document.getElementById('hourDisplay');
+            const toggleCicsBtn = document.getElementById('toggleCicsBtn');
+            const simPlayBtn = document.getElementById('simPlayBtn');
+            const playText = document.getElementById('playText');
+            const playIcon = document.getElementById('playIcon');
+            const resetSimBtn = document.getElementById('resetSimBtn');
+
+            let isCicsActive = true;
+            let isPlaying = false;
+            let playInterval = null;
+
+            // 24-hour profiles
+            // Carbon intensity profile: clean in early morning & night, dirty midday
+            const carbonProfile = [
+                280, 260, 250, 240, 260, 310, 390, 480, 520, 550, 580, 600, 590, 560, 510, 460, 420, 450, 490, 440, 380, 340, 310, 290
+            ];
+            // Inflexible base load (MW)
+            const baseInflexible = [
+                48, 47, 46, 46, 47, 49, 52, 55, 58, 60, 62, 63, 63, 62, 61, 60, 59, 58, 56, 54, 52, 50, 49, 48
+            ];
+            // Unshaped flexible load (Runs flat whenever it arrives)
+            const unshapedFlexible = [
+                38, 38, 39, 39, 40, 40, 41, 41, 42, 42, 42, 42, 42, 42, 41, 41, 40, 40, 39, 39, 38, 38, 38, 38
+            ];
+            // Shaped flexible load under CICS (Drops ~50% during dirty noon peakers, shifts to night/morning)
+            const shapedFlexible = [
+                52, 53, 54, 55, 54, 48, 35, 24, 21, 20, 19, 19, 20, 22, 28, 36, 42, 44, 42, 46, 50, 52, 52, 51
+            ];
+
+            function renderSimulator() {
+                const hour = parseInt(hourSlider.value, 10);
+                hourDisplay.textContent = `${String(hour).padStart(2, '0')}:00 PT`;
+
+                const svgWidth = 700;
+                const svgHeight = 280;
+                const xStep = (svgWidth - 100) / 23;
+
+                // Build SVG paths
+                let cPath = `M 50 ${240 - (carbonProfile[0] / 700) * 180}`;
+                let ifPath = `M 50 250 L 50 ${250 - baseInflexible[0] * 1.6}`;
+                let flPath = `M 50 ${250 - baseInflexible[0] * 1.6}`;
+                let vccPath = `M 50 ${250 - (baseInflexible[0] + (isCicsActive ? shapedFlexible[0] : 45)) * 1.6}`;
+
+                for (let h = 0; h < 24; h++) {
+                    const x = 50 + h * xStep;
+                    const cY = 240 - (carbonProfile[h] / 700) * 180;
+                    cPath += ` L ${x} ${cY}`;
+
+                    const ifY = 250 - baseInflexible[h] * 1.6;
+                    ifPath += ` L ${x} ${ifY}`;
+
+                    const flex = isCicsActive ? shapedFlexible[h] : unshapedFlexible[h];
+                    const totY = 250 - (baseInflexible[h] + flex) * 1.6;
+                    flPath += ` L ${x} ${totY}`;
+
+                    const vccY = 250 - (baseInflexible[h] + (isCicsActive ? shapedFlexible[h] + 2 : 46)) * 1.6;
+                    vccPath += ` L ${x} ${vccY}`;
+                }
+
+                // Close area paths
+                ifPath += ` L ${50 + 23 * xStep} 250 Z`;
+                flPath += ` L ${50 + 23 * xStep} ${250 - baseInflexible[23] * 1.6}`;
+                for (let h = 23; h >= 0; h--) {
+                    const x = 50 + h * xStep;
+                    const ifY = 250 - baseInflexible[h] * 1.6;
+                    flPath += ` L ${x} ${ifY}`;
+                }
+                flPath += ` Z`;
+
+                document.getElementById('carbonCurvePath').setAttribute('d', cPath);
+                document.getElementById('inflexibleLoadPath').setAttribute('d', ifPath);
+                document.getElementById('flexibleLoadPath').setAttribute('d', flPath);
+                document.getElementById('vccCeilingPath').setAttribute('d', vccPath);
+
+                // Update cursor
+                const curX = 50 + hour * xStep;
+                const activeFlex = isCicsActive ? shapedFlexible[hour] : unshapedFlexible[hour];
+                const curY = 250 - (baseInflexible[hour] + activeFlex) * 1.6;
+                document.getElementById('scrubberLine').setAttribute('x1', curX);
+                document.getElementById('scrubberLine').setAttribute('x2', curX);
+                document.getElementById('scrubberDot').setAttribute('cx', curX);
+                document.getElementById('scrubberDot').setAttribute('cy', curY);
+
+                // Update Metrics
+                const cVal = carbonProfile[hour];
+                const pVal = baseInflexible[hour] + activeFlex;
+                const unshapedP = baseInflexible[hour] + unshapedFlexible[hour];
+                const pctDiff = (((pVal - unshapedP) / unshapedP) * 100).toFixed(1);
+
+                document.getElementById('valCarbon').textContent = `${cVal} gCO2e/kWh`;
+                document.getElementById('valPower').textContent = `${pVal} MW (${pctDiff > 0 ? '+' : ''}${pctDiff}%)`;
+
+                const queueCount = isCicsActive && cVal > 450 ? Math.round((cVal - 450) * 12.5) : 80;
+                document.getElementById('valQueue').textContent = `${queueCount.toLocaleString()} Jobs`;
+
+                const avoidedCo2 = isCicsActive ? ((hour + 1) * 1.15).toFixed(1) : '0.0';
+                document.getElementById('valEmissions').textContent = `${avoidedCo2} Metric Tons`;
+
+                // Log Text
+                const log = document.getElementById('simLogText');
+                if (isCicsActive) {
+                    if (cVal > 500) {
+                        log.innerHTML = `&bull; <strong>${hour}:00 PT High-Carbon Peak:</strong> VCC actively dips to suppress flexible admission. ~50% batch jobs held in Borg queue to prevent fossil peaker dispatch.`;
+                    } else {
+                        log.innerHTML = `&bull; <strong>${hour}:00 PT Clean Grid Window:</strong> Low grid emissions. Borg admits queued ML & compaction batch jobs with elevated VCC capacity headroom.`;
+                    }
+                } else {
+                    log.innerHTML = `&bull; <strong>${hour}:00 PT Unshaped Baseline:</strong> Flexible batch jobs execute immediately as they arrive, consuming high-carbon fossil power during peak hours.`;
+                }
+            }
+
+            hourSlider.addEventListener('input', renderSimulator);
+
+            toggleCicsBtn.addEventListener('click', () => {
+                isCicsActive = !isCicsActive;
+                if (isCicsActive) {
+                    toggleCicsBtn.classList.add('active-mode');
+                    toggleCicsBtn.innerHTML = '&#9679; CICS Active (Carbon-Aware)';
+                    document.getElementById('simStatusTag').className = 'tag tag-green';
+                    document.getElementById('simStatusTag').textContent = 'Active Shaping';
+                } else {
+                    toggleCicsBtn.classList.remove('active-mode');
+                    toggleCicsBtn.innerHTML = '&#9675; CICS Disabled (Baseline)';
+                    document.getElementById('simStatusTag').className = 'tag tag-red';
+                    document.getElementById('simStatusTag').textContent = 'Unshaped Flat';
+                }
+                renderSimulator();
+            });
+
+            simPlayBtn.addEventListener('click', () => {
+                if (isPlaying) {
+                    clearInterval(playInterval);
+                    isPlaying = false;
+                    playIcon.innerHTML = '&#9654;';
+                    playText.textContent = 'Play Timeline';
+                } else {
+                    isPlaying = true;
+                    playIcon.innerHTML = '&#10074;&#10074;';
+                    playText.textContent = 'Pause';
+                    playInterval = setInterval(() => {
+                        let cur = parseInt(hourSlider.value, 10);
+                        cur = (cur + 1) % 24;
+                        hourSlider.value = cur;
+                        renderSimulator();
+                    }, 800);
+                }
+            });
+
+            resetSimBtn.addEventListener('click', () => {
+                if (isPlaying) {
+                    clearInterval(playInterval);
+                    isPlaying = false;
+                    playIcon.innerHTML = '&#9654;';
+                    playText.textContent = 'Play Timeline';
+                }
+                hourSlider.value = 13;
+                isCicsActive = true;
+                toggleCicsBtn.classList.add('active-mode');
+                toggleCicsBtn.innerHTML = '&#9679; CICS Active (Carbon-Aware)';
+                renderSimulator();
+            });
+
+            renderSimulator();
+
+            // ===================================================================
+            // PIPELINE ARCHITECTURE INTERACTIVE INSPECTOR (SLIDE 6)
+            // ===================================================================
+            const pipelineData = [
+                {
+                    title: "1. Carbon Fetching Pipeline (Tomorrow.io / ElectricityMap)",
+                    desc: "Ingests 48-hour forward-looking average carbon intensity forecasts &eta;<sup>(c)</sup>(h) in kgCO<sub>2</sub>e/kWh for all Google datacenter grid zones globally. The optimizer runs at 6:00 PM PT, utilizing forecast horizons ranging from 6 to 32 hours ahead.",
+                    formula: "MAPE(&eta;<sup>(c)</sup>) &in; [0.4%, 26%] across worldwide regional interconnects",
+                    specs: [
+                        "<strong>Update Frequency:</strong> Hourly telemetry refresh.",
+                        "<strong>Execution Schedule:</strong> Daily run at 6:00 PM Pacific Standard Time.",
+                        "<strong>Geographic Scope:</strong> &gt;20 datacenters across 4 continents."
+                    ]
+                },
+                {
+                    title: "2. Power Modeling Pipeline (Piecewise Linear Translation)",
+                    desc: "Maps cluster CPU compute usage to physical electrical power draw across power domains (PDs). Machine heterogeneity is abstracted into piecewise linear models with remarkable empirical fidelity.",
+                    formula: "Pow<sup>(PD)</sup>(u + &Delta;u) - Pow<sup>(PD)</sup>(u) &approx; &pi;<sup>(PD)</sup>(u) &Delta;u &nbsp;&bull;&nbsp; MAPE &lt; 5% for &gt;95% of PDs",
+                    specs: [
+                        "<strong>Granularity:</strong> Evaluated at 5-minute sampling resolution.",
+                        "<strong>Validation Fleet:</strong> Verified across heterogeneous CPU, TPU, and storage racks.",
+                        "<strong>Sensitivity:</strong> Aggregate cluster slope &pi;<sup>(c)</sup> = &sum; &pi;<sup>(PD)</sup> &lambda;<sup>(PD)</sup>."
+                    ]
+                },
+                {
+                    title: "3. Day-Ahead Load Forecasting Pipeline",
+                    desc: "Two-step prediction framework combining week-ahead exponential moving average (EWMA) with day-ahead adaptive linear regression error correction based on yesterday's measured deviations.",
+                    formula: "Forecast &approx; a + b &times; (Week-Ahead EWMA) + c &times; (Yesterday's Deviation)",
+                    specs: [
+                        "<strong>EWMA Half-Life:</strong> 0.5 (weekly mean, decay 0.45) and 4.0 (intra-week factors, decay 0.07).",
+                        "<strong>Accuracy:</strong> Median Absolute Percent Error (APE) &lt; 10% for &gt;90% of clusters.",
+                        "<strong>Reservation Ratios:</strong> Model with log(usage) predicts reservation-to-usage curve R&#770;<sup>(c)</sup>."
+                    ]
+                },
+                {
+                    title: "4. Global Risk-Aware CICS Optimizer",
+                    desc: "Central solver executing fleetwide co-optimization. Computes optimal Virtual Capacity Curves (VCCs) balancing expected carbon footprint reduction against peak power electrical infrastructure costs.",
+                    formula: "min &lambda;<sub>e</sub> &sum; &eta;(h) Pow(h) + &lambda;<sub>p</sub> &sum; y(d) &nbsp;subject to Constraints (7) - (11)",
+                    specs: [
+                        "<strong>Execution Time:</strong> 6:00 PM PT daily run.",
+                        "<strong>Output:</strong> 24 hourly capacity caps pushed to all Google Borg clusters.",
+                        "<strong>Risk Buffer:</strong> Plans against the 97th percentile of predicted demand."
+                    ]
+                },
+                {
+                    title: "5. Service Level Objective (SLO) Guardrail & Feedback",
+                    desc: "Continuous automated monitoring of flexible throughput completion. If actual daily compute reservations approach the 97th percentile safety limit for two consecutive days, CICS trips a fail-safe.",
+                    formula: "Fail-Safe Rule: Actual Demand &gt; &Theta;<sup>(c)</sup>(d) for 2 days &rarr; Stop shaping for 7 days",
+                    specs: [
+                        "<strong>SLO Guarantee:</strong> &le; 1 violation day per month (&le; 3% probability).",
+                        "<strong>Adaptation Window:</strong> 7 days paused shaping allows forecasting ML to re-converge.",
+                        "<strong>User Equity:</strong> Admission throttling applies unbiased delays across all batch users."
+                    ]
+                }
+            ];
+
+            const pipeCards = document.querySelectorAll('.pipeline-card');
+            const pipeTitle = document.getElementById('pipeDetailTitle');
+            const pipeDesc = document.getElementById('pipeDetailDesc');
+            const pipeFormula = document.getElementById('pipeDetailFormula');
+            const pipeSpecs = document.getElementById('pipeDetailSpecs');
+
+            pipeCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    pipeCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    const idx = parseInt(card.getAttribute('data-pipe'), 10);
+                    const data = pipelineData[idx];
+
+                    pipeTitle.innerHTML = data.title;
+                    pipeDesc.innerHTML = data.desc;
+                    pipeFormula.innerHTML = data.formula;
+                    pipeSpecs.innerHTML = data.specs.map(s => `<li>${s}</li>`).join('');
+                });
+            });
+
+            // ===================================================================
+            // RESULTS TABS (SLIDE 9)
+            // ===================================================================
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+
+                    btn.classList.add('active');
+                    const targetId = btn.getAttribute('data-tab');
+                    const targetContent = document.getElementById(targetId);
+                    if (targetContent) targetContent.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
